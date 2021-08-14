@@ -1,4 +1,5 @@
 #include "Shader.h"
+#include "stb_image.h"
 #include <GLFW/glfw3.h>
 
 // structures
@@ -57,59 +58,66 @@ int main()
         return -1;
     }
 
-    // positions
-    // ---------
-    const int positionsQuant1 = 15;
-    float firstTriangle[positionsQuant1] =
-    {
-        // left triangle
-        // position    // color
-         -0.5f, -0.5f, 1.0f, 1.0f, 0.0f, // left 
-         0.0f, -0.5f, 0.0f, 1.0f, 0.0f,  // right 
-         -0.45f, 0.5f, 1.0f, 0.0f, 1.0f, // top 
+    // set up vertex data (and buffer(s)) and configure vertex attributes
+    // ------------------------------------------------------------------
+    float vertices[] = {
+        // positions          // colors           // texture coords
+         0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f, // top right
+         0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, // bottom right
+        -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // bottom left
+        -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f  // top left 
     };
-
-    const int positionsQuant2 = 15;
-    float secondTriangle[positionsQuant2] =
-    {
-        // right triangle
-        // position    // color
-          0.0f, -0.5f, 1.0f, 0.0f, 0.0f, // left 
-          0.9f, -0.5f, 0.0f, 1.0f, 0.0f,  // right 
-          0.45f, 0.5f, 0.0f, 0.0f, 1.0f // top 
+    unsigned int indices[] = {
+        0, 1, 3, // first triangle
+        1, 2, 3  // second triangle
     };
+    unsigned int VBO, VAO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
 
-    unsigned int VBOs[2], VAOs[2];
-    // Generating vertex arrays and buffers
-    GLCall(glGenVertexArrays(2, VAOs));
-    GLCall(glGenBuffers(2, VBOs));
-    // first triangle setup
-    // --------------------
-    GLCall(glBindVertexArray(VAOs[0]));
-    GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]));
-    GLCall(glBufferData(GL_ARRAY_BUFFER, sizeof(firstTriangle) * positionsQuant1, firstTriangle, GL_STATIC_DRAW));
-    // enabling position attribute
-    GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*)0));
-    GLCall(glEnableVertexAttribArray(0));
-    // enabling color attribute
-    GLCall(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*)(2 * sizeof(float))));
-    GLCall(glEnableVertexAttribArray(1));
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    // texture coord attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
     // unbind
     GLCall(glBindVertexArray(0));
 
-    // second triangle setup
-    // --------------------
-    GLCall(glBindVertexArray(VAOs[1]));
-    GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBOs[1]));
-    GLCall(glBufferData(GL_ARRAY_BUFFER, sizeof(secondTriangle) * positionsQuant2, secondTriangle, GL_STATIC_DRAW));
-    // enabling position attribute
-    GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*)0));
-    GLCall(glEnableVertexAttribArray(0));
-    // enabling color attribute
-    GLCall(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*)(2 * sizeof(float))));
-    GLCall(glEnableVertexAttribArray(1));
-    // unbind
-    GLCall(glBindVertexArray(0));
+    // Texture setup
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    // set the texture wrapping/filtering options (on the currently bound texture object)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // load and generate the texture
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load("container.jpg", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    stbi_image_free(data);
 
     // wireframe polygons
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -137,17 +145,11 @@ int main()
 
         // using shader for triangles
         GLCall(shader.use());
-        shader.setFloat("xOffset", sin(glfwGetTime() / 0.3f));
-        shader.setFloat("yOffset", sin(glfwGetTime() / 0.3f));
-        shader.setFloat("zOffset", sin(glfwGetTime() / 0.3f));
 
-        // draw first triangle
-        GLCall(glBindVertexArray(VAOs[0]));
-        GLCall(glDrawArrays(GL_TRIANGLES, 0, 3));
-
-        // draw second triangle
-        GLCall(glBindVertexArray(VAOs[1]));
-        GLCall(glDrawArrays(GL_TRIANGLES, 0, 3));
+        // Drawn rectangle with texture
+        GLCall(glBindTexture(GL_TEXTURE_2D, texture));
+        GLCall(glBindVertexArray(VAO));
+        GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0));
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -157,8 +159,8 @@ int main()
 
       // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
-    glDeleteVertexArrays(2, VAOs);
-    glDeleteBuffers(2, VBOs);
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
